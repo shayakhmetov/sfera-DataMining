@@ -26,7 +26,8 @@ def plot_data_set(x, y):
         inds = np.array([0, 1, 2, 3])
         inds = np.delete(inds, [i])
         inds = np.append(inds, i)
-
+        title = 'x=attr'+str(inds[0])+' y=attr'+str(inds[1])+' z=attr'+str(inds[2])+' color=attr'+str(inds[3])
+        ax.set_title(title)
         print inds
         ax.scatter(x1[inds[0]], x1[inds[1]], x1[inds[2]], c=x1[inds[3]], marker='o', vmin=cmin, vmax=cmax, label='class1', cmap=cm.brg)
         ax.scatter(x2[inds[0]], x2[inds[1]], x2[inds[2]], c=x2[inds[3]], marker='D', vmin=cmin, vmax=cmax, label='class2', cmap=cm.brg)
