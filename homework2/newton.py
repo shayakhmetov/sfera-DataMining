@@ -4,10 +4,85 @@ import numpy as np
 import matplotlib.pyplot as pl
 from mpl_toolkits.mplot3d import axes3d, Axes3D
 import matplotlib.cm as cm
-from sklearn.linear_model import LogisticRegression
+#from sklearn.linear_model import LogisticRegression
 from sklearn.cross_validation import KFold
+from sklearn.preprocessing import normalize
 import sklearn.metrics
 import random
+
+
+def quad(x):
+    f = np.vectorize(lambda elem: elem*elem)
+    return f(x)
+
+basis_funcs = {'exp': lambda x: np.exp(quad(x)/(-2)), 'quad': lambda x: quad(x), 'id': lambda x: x}
+
+
+def sigmoid(a):
+    return 1. / (1. + np.exp(-a))
+
+class LinearNewtonClassifier():
+    def __init__(self, n_iter=100, reg_coef=None, epsilon=0.001, basis_func='id'):
+        self.n_iter = n_iter
+        self.w = None
+        self.eta = 0.001
+        self.reg_coef = reg_coef
+        self.basis_func = basis_funcs[basis_func]
+        self.epsilon = epsilon
+        self.n_features = None
+
+    def __recompute_eta(self, iteration):
+        self.eta /= (1. + self.eta * iteration * self.reg_coef)
+
+    def __grad(self, w, xs, ys):
+        result = np.zeros(self.n_features)
+        for i, x in enumerate(xs):
+            result += (sigmoid(np.dot(w, x)) - ys[i]) * self.basis_func(x)
+        return result + self.reg_coef * w
+
+    def __hessian(self, w, xs, ys):
+        result = self.reg_coef * np.identity(self.n_features)
+        for i, x in enumerate(xs):
+            a = sigmoid(np.dot(w, x))
+            fi = np.atleast_2d(self.basis_func(x))
+            m = np.dot(fi, fi.T)
+            result += a * m
+        return result
+
+    def fit(self, x, y):
+        self.n_features = x.shape[1] + 1
+        n_samples = x.shape[0]
+        self.w = np.zeros(self.n_features)
+        self.w[0] = 1.
+        if self.reg_coef is None:
+            self.reg_coef = 1./n_samples
+        x = np.column_stack((np.ones(n_samples), x))
+
+        for k in range(self.n_iter):
+            g = self.__grad(self.w, x, y)
+            h = self.__hessian(self.w, x, y)
+            d = np.linalg.solve(h, -g)
+            self.w += self.eta * d
+            if (np.fabs(self.eta * d) < self.epsilon).all():
+                break
+            self.__recompute_eta(k)
+        print k
+        return self.w
+
+    def predict_proba(self, xs):
+        result = []
+        if xs.shape[0] == 1:
+            xs = np.array(xs)
+        xs = np.column_stack((np.ones(xs.shape[0]), xs))
+        for x in xs:
+            anti_proba = sigmoid(np.dot(self.w, x))
+            proba = 1. - anti_proba
+            result.append([proba, anti_proba])
+        if xs.shape[0] == 1:
+            return result[0]
+        else:
+            return result
+
 
 def plot_data_set(x, y):
     print "Plotting data"
@@ -63,17 +138,20 @@ def main():
         data_set = map(lambda xl: [float(a) for a in xl[:-1]], data_set)
         data_set = np.array(data_set)
         target_set = np.array(target_set)
-
+        #ADD NORMALIZATION
         if args.plot_data:
             plot_data_set(data_set, target_set)
             exit(0)
 
-        solver = 'newton-cg'
-        penalty = 'l2'
+        #solver = 'newton-cg'
+        #penalty = 'l2'
+        data_set = normalize(data_set)
         clf = {}
-        clf[0] = LogisticRegression(C=data_set.shape[0], solver=solver, penalty=penalty)
-        clf[1] = LogisticRegression(C=data_set.shape[0], solver=solver, penalty=penalty)
-        clf[2] = LogisticRegression(C=data_set.shape[0], solver=solver, penalty=penalty)
+
+        clf[0] = LinearNewtonClassifier(basis_func=args.basis_func)
+        clf[1] = LinearNewtonClassifier(basis_func=args.basis_func)
+        clf[2] = LinearNewtonClassifier(basis_func=args.basis_func)
+
         kfolds = KFold(data_set.shape[0], n_folds=k, shuffle=True, random_state=random.randint(1, 251192))
         predict = {}
         precisions = []
@@ -113,7 +191,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Experiments on linear classifiers applied to Iris data set')
 
     parser.add_argument('-p', dest='plot_data', action='store_true', default=False, help='Plot data')
-    parser.add_argument('-f', dest='basis func', action='store', choices=['exp', 'quad', 'id'], default='id', help='Basis functions')
+    parser.add_argument('-f', dest='basis_func', action='store', choices=basis_funcs.keys(), default='id', help='Basis functions')
     parser.add_argument('-k', dest='kfold', action='store', type=int, default=5, help='K-fold for cross-validation')
     return parser.parse_args()
 
