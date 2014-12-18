@@ -10,12 +10,14 @@ from sklearn.metrics import accuracy_score
 
 
 class StochasticGradientBoosting():
-    def __init__(self, n_trees, min_leaf_size):
+    def __init__(self, n_trees=2, min_leaf_size=5, rsm=0.2, bagging=0.2):
         self.n_trees = n_trees
         self.min_leaf_size = min_leaf_size
         self.composition = []
         self.f0 = 0.
         self.num_labels = 0
+        self.rsm = rsm
+        self.bagging = bagging
 
     def fit(self, data_set, target_set):
         labels = numpy.unique(target_set)
@@ -28,15 +30,17 @@ class StochasticGradientBoosting():
         self.f0 = x0
         self.num_labels = labels.shape[0]
         #self.f0 = minimize_scalar(lambda gamma: self.__logistic_loss_function(target_set, gamma)).x
-
+        other_data_set, other_target_set = data_set, target_set
         for m in range(self.n_trees):
-            rm = - self.__gradient_loss_function(target_set, self.__decision_func(data_set))
+            other_data_set, current_data_set, other_target_set, current_target_set =\
+                train_test_split(other_data_set, other_target_set, test_size=self.bagging)
+            rm = - self.__gradient_loss_function(current_target_set, self.__decision_func(current_data_set))
             cart_tree = CartTree(self.min_leaf_size)
-            cart_tree.fit(data_set, rm)
+            cart_tree.fit(current_data_set, rm)
             gamma_m = minimize_scalar(lambda gamma:
                                       self.__logistic_loss_function(
-                                          target_set, self.__decision_func(data_set) +
-                                          gamma*cart_tree.predict(data_set)))
+                                          current_target_set, self.__decision_func(current_data_set) +
+                                          gamma*cart_tree.predict(current_data_set)))
             self.composition.append((gamma_m.x, cart_tree))
 
     def __logistic_loss_function(self, y, fx):
@@ -59,8 +63,6 @@ class StochasticGradientBoosting():
 
     def __gradient_loss_function(self, y, fx):
         sig = self.__sigmoid(fx)
-        #return (sig - y) / (sig * (1. - sig))
-        #return (1 - y) * numpy.log2(numpy.exp(1)) - sig * numpy.exp(-fx)
         return (1 - y) * numpy.log2(numpy.exp(1)) + sig - 1
 
     def __decision_func(self, xs):
@@ -70,29 +72,14 @@ class StochasticGradientBoosting():
         return decision
 
     def predict(self, xs):
-        decision = self.__decision_func(xs)
-        return self.__squeeze_data(decision)
-
-    def __squeeze_data(self, decision):
-        old_min = min(decision)
-        old_max = max(decision)
-        if old_min < 0:
-            decision = [x-old_min for x in decision]
-            old_max -= old_min
-            old_min = 0
-        old_range = old_max - old_min
-        if old_range != 0:
-            decision = [round((x - old_min)/old_range) for x in decision]
-        else:
-            decision = [0 for x in decision]
-
-        return numpy.array(decision, dtype=int)
+        return self.__sigmoid(self.__decision_func(xs))
 
     def print_b(self):
         print '{',
         for b, tree in self.composition:
             print b,
         print '}'
+
 
 def convert_targets(label, targets):
     for l in targets:
@@ -110,15 +97,16 @@ def construct_predicted(pd1, pd2, pd3):
 def main():
     data_set = load_iris()['data']
     target_set = load_iris()['target']
-    n_trees = 10
-    min_leaf_size = 1
-    max_leaf_size = 20
+    min_n_trees = 1
+    max_n_trees = 10
+    min_leaf_size = 4
+    max_leaf_size = 10
 
     train_data_set, test_data_set, train_target_set, test_target_set = \
                 train_test_split(data_set, target_set, test_size=0.2)
 
-    for leaf_size in range(min_leaf_size, max_leaf_size, 2):
-        for m in range(1, n_trees, 4):
+    for leaf_size in range(min_leaf_size, max_leaf_size, 1):
+        for m in range(min_n_trees, max_n_trees, 2):
             classifier1 = StochasticGradientBoosting(n_trees=m+1, min_leaf_size=leaf_size)
             classifier2 = StochasticGradientBoosting(n_trees=m+1, min_leaf_size=leaf_size)
             classifier3 = StochasticGradientBoosting(n_trees=m+1, min_leaf_size=leaf_size)
@@ -132,9 +120,9 @@ def main():
             classifier3.fit(train_data_set, targets3)
 
             print '-----!!! ', m+1, ' Trees:'
-            classifier1.print_b()
-            classifier2.print_b()
-            classifier3.print_b()
+            #classifier1.print_b()
+            #classifier2.print_b()
+            #classifier3.print_b()
             predicted1 = classifier1.predict(test_data_set)
             predicted2 = classifier2.predict(test_data_set)
             predicted3 = classifier3.predict(test_data_set)
