@@ -40,7 +40,7 @@ class StochasticGradientBoosting():
             rsm_bag_data_set = current_data_set
 
             if self.rsm < 1.:
-                split = ShuffleSplit(data_set.shape[1], test_size=self.rsm, n_iter=1)
+                split = ShuffleSplit(data_set.shape[1], test_size=self.rsm, n_iter=1, random_state=numpy.random.randint(0, 100000))
                 for o_f, c_f in split:
                     feature_indices = c_f
                     feature_indices = numpy.sort(feature_indices)
