@@ -134,9 +134,9 @@ def main():
             classifier3.fit(train_data_set, targets3)
 
             print '-----!!! ', m+1, ' Trees:'
-            classifier1.print_b()
-            classifier2.print_b()
-            classifier3.print_b()
+            #classifier1.print_b()
+            #classifier2.print_b()
+            #classifier3.print_b()
             predicted1 = classifier1.predict(test_data_set)
             predicted2 = classifier2.predict(test_data_set)
             predicted3 = classifier3.predict(test_data_set)
