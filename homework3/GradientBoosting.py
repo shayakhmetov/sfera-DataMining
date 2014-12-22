@@ -75,6 +75,9 @@ class StochasticGradientBoosting():
         return decision
 
     def predict(self, xs):
+        return numpy.array([int(round(x)) for x in self.__sigmoid(self.__decision_func(xs, True))])
+
+    def predict_proba(self, xs):
         return self.__sigmoid(self.__decision_func(xs, True))
 
     def print_b(self):
@@ -108,7 +111,40 @@ def load_wine():
     xs = xs[:, 1:]
     return {'data': xs, 'target': targets}
 
+
+def mainBupa():
+    xs = []
+    with open('bupa.data', "r") as data_file:
+        for line in data_file:
+            list.insert(xs, 0, line.split(","))
+    targets = [int(line[-1]) - 1 for line in xs]
+    xs = numpy.array(xs, dtype=float)
+    data_set = xs[:, :-1]
+    target_set = numpy.array(targets)
+
+    min_n_trees = 1
+    max_n_trees = 30
+    min_leaf_size = 1
+    max_leaf_size = 7
+
+    train_data_set, test_data_set, train_target_set, test_target_set = \
+                train_test_split(data_set, target_set, test_size=0.2)
+
+    for leaf_size in range(min_leaf_size, max_leaf_size, 1):
+        for m in range(min_n_trees, max_n_trees, 5):
+            classifier = StochasticGradientBoosting(n_trees=m+1, min_leaf_size=leaf_size)
+            classifier.fit(train_data_set, train_target_set)
+
+            print '-----!!! ', m+1, ' Trees:'
+            predicted = classifier.predict(test_data_set)
+            print 'ideal = ', numpy.array(test_target_set)
+            print 'predict=', predicted
+            print 'RESULT =', accuracy_score(test_target_set, predicted), ' with min_leaf_size =', leaf_size
+            print
+
 def main():
+    mainBupa()
+    return None
     data_set = load_wine()['data']
     target_set = load_wine()['target']
     min_n_trees = 1
@@ -137,9 +173,9 @@ def main():
             #classifier1.print_b()
             #classifier2.print_b()
             #classifier3.print_b()
-            predicted1 = classifier1.predict(test_data_set)
-            predicted2 = classifier2.predict(test_data_set)
-            predicted3 = classifier3.predict(test_data_set)
+            predicted1 = classifier1.predict_proba(test_data_set)
+            predicted2 = classifier2.predict_proba(test_data_set)
+            predicted3 = classifier3.predict_proba(test_data_set)
             #print predicted1
             #print predicted2
             #print predicted3
